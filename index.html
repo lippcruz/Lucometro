@@ -1,0 +1,579 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lucômetro — medidor oficial de idiotices do Lucas</title>
+
+<!--
+  ============================================================
+  COMO CONFIGURAR O ARMAZENAMENTO COMPARTILHADO (Firebase)
+  ============================================================
+  Sem configurar isso, o site funciona, mas cada pessoa só vê
+  as burrices que ELA MESMA cadastrou no próprio navegador.
+  Para que TODO MUNDO veja e adicione na mesma lista, siga:
+
+  1. Vá em https://console.firebase.google.com e crie um projeto
+     gratuito (não precisa cartão de crédito).
+  2. No menu lateral, entre em "Realtime Database" > "Criar banco
+     de dados" > escolha modo de teste (regras públicas).
+  3. Em "Regras", deixe assim (permite leitura/escrita pública —
+     ok pra uma brincadeira entre amigos, mas qualquer um com o
+     link pode escrever):
+       {
+         "rules": { ".read": true, ".write": true }
+       }
+  4. Copie a URL do banco (algo como
+     "https://SEU-PROJETO-default-rtdb.firebaseio.com").
+  5. Cole essa URL na constante FIREBASE_URL logo abaixo, no
+     bloco <script>.
+  6. Suba o index.html pro GitHub Pages e pronto — o link já
+     funciona pra qualquer pessoa adicionar idiotices.
+  ============================================================
+-->
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+
+<style>
+  :root{
+    --bg:#0b0b0c;
+    --surface:#131315;
+    --border:#26262a;
+    --text:#f2f2f0;
+    --muted:#8a8a8f;
+    --accent:#ff5a36;
+  }
+
+  *{ box-sizing:border-box; }
+
+  body{
+    margin:0;
+    background:var(--bg);
+    color:var(--text);
+    font-family:'Inter', sans-serif;
+    min-height:100vh;
+  }
+
+  .wrap{ max-width:680px; margin:0 auto; padding:56px 20px 90px; }
+
+  .mono{ font-family:'IBM Plex Mono', monospace; }
+
+  /* ---------- HEADER ---------- */
+  header{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    padding-bottom:18px;
+    border-bottom:1px solid var(--border);
+  }
+  header .wordmark{
+    font-size:13px;
+    font-weight:600;
+    letter-spacing:0.06em;
+    text-transform:uppercase;
+    color:var(--muted);
+  }
+  header .wordmark .dot{ color:var(--accent); }
+  header .sub{ font-size:12.5px; color:var(--muted); }
+
+  h1.title{
+    font-size:clamp(48px, 12vw, 84px);
+    font-weight:700;
+    letter-spacing:-0.02em;
+    line-height:1;
+    margin:28px 0 0;
+  }
+  h1.title .dot{ color:var(--accent); }
+
+  .intro{
+    margin:18px 0 0;
+    font-size:14.5px;
+    line-height:1.6;
+    color:var(--muted);
+    max-width:52ch;
+  }
+
+  /* ---------- COUNTER ---------- */
+  .counter-block{
+    margin-top:44px;
+    border:1px solid var(--border);
+    padding:36px 28px 30px;
+  }
+
+  .gauge-wrap{
+    display:flex;
+    justify-content:center;
+  }
+
+  .gauge-wrap svg{ width:100%; max-width:340px; height:auto; }
+
+  .needle{ transform-origin: 160px 184px; transition: transform 0.9s cubic-bezier(.22,1,.36,1); }
+
+  .tick-label{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:8.5px;
+    fill:var(--muted);
+    text-transform:uppercase;
+  }
+
+  .counter-readout{
+    display:flex;
+    justify-content:center;
+    align-items:baseline;
+    gap:10px;
+    margin-top:6px;
+  }
+
+  .counter-figure{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:clamp(40px, 9vw, 56px);
+    font-weight:600;
+    line-height:1;
+    color:var(--accent);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .counter-label{
+    font-size:12px;
+    color:var(--muted);
+    text-transform:uppercase;
+    letter-spacing:0.08em;
+  }
+
+  .rank-row{
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    gap:12px;
+    margin-top:18px;
+    flex-wrap:wrap;
+  }
+
+  .rank-tag{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:12.5px;
+    color:var(--text);
+    border:1px solid var(--border);
+    padding:6px 10px;
+    white-space:nowrap;
+  }
+
+  .progress-caption{
+    font-size:12.5px;
+    color:var(--muted);
+  }
+
+  /* ---------- FORM ---------- */
+  .panel{
+    margin-top:40px;
+  }
+
+  .panel-title{
+    font-size:13px;
+    font-weight:600;
+    text-transform:uppercase;
+    letter-spacing:0.06em;
+    color:var(--muted);
+    margin:0 0 16px;
+  }
+
+  form{ display:grid; gap:14px; }
+
+  label{
+    font-size:12.5px;
+    color:var(--muted);
+    display:block;
+    margin-bottom:6px;
+  }
+
+  input, textarea{
+    width:100%;
+    font-family:'Inter', sans-serif;
+    font-size:14.5px;
+    padding:11px 12px;
+    border:1px solid var(--border);
+    background:var(--surface);
+    color:var(--text);
+    border-radius:2px;
+  }
+  input::placeholder, textarea::placeholder{ color:#55555c; }
+
+  input:focus, textarea:focus{
+    outline:none;
+    border-color:var(--accent);
+  }
+
+  textarea{ resize:vertical; min-height:64px; }
+
+  .row{ display:grid; gap:14px; grid-template-columns: 1fr 1fr; }
+  @media (max-width:520px){ .row{ grid-template-columns:1fr; } }
+
+  button{
+    justify-self:start;
+    font-family:'Inter', sans-serif;
+    font-weight:600;
+    font-size:14px;
+    background:var(--accent);
+    color:#120904;
+    border:none;
+    border-radius:2px;
+    padding:11px 22px;
+    cursor:pointer;
+    transition: opacity .12s ease;
+  }
+  button:hover{ opacity:0.88; }
+  button:active{ opacity:0.75; }
+  button:focus-visible{ outline:2px solid var(--text); outline-offset:2px; }
+
+  .status-msg{ font-size:12.5px; color:var(--muted); min-height:16px; }
+
+  /* ---------- LIST ---------- */
+  .log-header{
+    display:flex; justify-content:space-between; align-items:baseline;
+    margin:44px 0 4px;
+    padding-bottom:12px;
+    border-bottom:1px solid var(--border);
+  }
+  .log-header h2{
+    font-size:13px;
+    font-weight:600;
+    text-transform:uppercase;
+    letter-spacing:0.06em;
+    color:var(--muted);
+    margin:0;
+  }
+  .log-count{ font-size:12.5px; color:var(--muted); font-family:'IBM Plex Mono', monospace; }
+
+  .entries{ }
+
+  .entry{
+    padding:20px 0;
+    border-bottom:1px solid var(--border);
+    display:grid;
+    grid-template-columns: 56px 1fr;
+    gap:18px;
+  }
+
+  .entry .code{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:12px;
+    color:var(--muted);
+    padding-top:3px;
+  }
+
+  .entry .word{
+    font-size:17px;
+    font-weight:600;
+  }
+
+  .entry .meaning{
+    font-size:14px;
+    line-height:1.55;
+    color:#c7c7cc;
+    margin-top:5px;
+  }
+
+  .entry .meta{
+    margin-top:10px;
+    font-size:12px;
+    color:var(--muted);
+    display:flex;
+    gap:14px;
+    flex-wrap:wrap;
+  }
+
+  .empty{
+    color:var(--muted);
+    font-size:13.5px;
+    padding:32px 0;
+    text-align:center;
+  }
+
+  .footer-note{
+    text-align:center;
+    color:var(--muted);
+    font-size:11.5px;
+    margin-top:48px;
+    opacity:0.6;
+  }
+
+  .sync-banner{
+    border:1px solid var(--border);
+    color:var(--muted);
+    font-size:12px;
+    padding:10px 14px;
+    margin-bottom:20px;
+    display:none;
+  }
+  .sync-banner b{ color:var(--accent); }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+
+  <div class="sync-banner" id="syncBanner">
+    <b>Modo local —</b> as idiotices cadastradas aqui ficam só neste navegador. Configure o FIREBASE_URL no código para compartilhar com todo mundo.
+  </div>
+
+  <header>
+    <div class="wordmark">lucômetro<span class="dot">.</span></div>
+    <div class="sub mono">catálogo de idiotices</div>
+  </header>
+
+  <h1 class="title">Lucômetro<span class="dot">.</span></h1>
+
+  <p class="intro">
+    Registro das palavras inventadas e asneiras ditas pelo Lucas.
+    Qualquer um pode adicionar uma ocorrência abaixo.
+  </p>
+
+  <div class="counter-block">
+    <div class="gauge-wrap">
+      <svg viewBox="0 0 320 260" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <clipPath id="photoClip">
+            <circle cx="160" cy="184" r="88"/>
+          </clipPath>
+        </defs>
+
+        <!-- arco (trilho) -->
+        <path d="M 40 184 A 120 120 0 0 1 280 184" fill="none" stroke="#26262a" stroke-width="2"/>
+
+        <!-- marcas de nível -->
+        <g id="ticks"></g>
+
+        <!-- foto do suspeito no centro do medidor -->
+        <image href="lucas.webp" x="72" y="96" width="176" height="176" clip-path="url(#photoClip)" preserveAspectRatio="xMidYMid slice"/>
+        <circle cx="160" cy="184" r="88" fill="none" stroke="#ff5a36" stroke-width="2"/>
+
+        <!-- ponteiro -->
+        <g id="needleGroup" class="needle">
+          <line x1="160" y1="184" x2="160" y2="78" stroke="#ff5a36" stroke-width="3" stroke-linecap="round"/>
+          <circle cx="160" cy="184" r="6" fill="#ff5a36"/>
+        </g>
+      </svg>
+    </div>
+
+    <div class="counter-readout">
+      <span class="counter-figure" id="counterFigure">000</span>
+      <span class="counter-label">idiotices<br>registradas</span>
+    </div>
+
+    <div class="rank-row">
+      <div class="rank-tag" id="rankTag">nível: novato</div>
+      <div class="progress-caption" id="progressCaption">faltam 3 para o próximo nível</div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <p class="panel-title">Registrar nova idiotice</p>
+    <form id="entryForm">
+      <div>
+        <label for="palavra">Palavra ou frase que ele inventou</label>
+        <input id="palavra" type="text" placeholder='ex.: "pretenscioso"' required maxlength="80">
+      </div>
+      <div>
+        <label for="significado">O que ele achava que significava (ou o contexto)</label>
+        <textarea id="significado" placeholder="ex.: usou pra dizer que o amigo era metido, só que a palavra certa é 'pretensioso'." required maxlength="400"></textarea>
+      </div>
+      <div class="row">
+        <div>
+          <label for="autor">Quem está denunciando (opcional)</label>
+          <input id="autor" type="text" placeholder="seu nome ou apelido" maxlength="40">
+        </div>
+        <div>
+          <label for="local">Onde/quando rolou (opcional)</label>
+          <input id="local" type="text" placeholder="ex.: churrasco de sábado" maxlength="60">
+        </div>
+      </div>
+      <button type="submit">Cadastrar idiotice</button>
+      <div class="status-msg" id="statusMsg"></div>
+    </form>
+  </div>
+
+  <div class="log-header">
+    <h2>Ocorrências</h2>
+    <span class="log-count" id="logCount">000</span>
+  </div>
+
+  <div class="entries" id="entries">
+    <div class="empty">Nenhuma idiotice registrada ainda. Seja o primeiro a denunciar.</div>
+  </div>
+
+  <div class="footer-note">lucômetro — nenhum Lucas foi poupado na produção deste site.</div>
+</div>
+
+<script>
+  // ============================================================
+  // CONFIGURAÇÃO — veja instruções no topo do arquivo (comentário HTML)
+  // ============================================================
+  const FIREBASE_URL = "https://lucometro-50d32-default-rtdb.firebaseio.com/";
+
+  const usingFirebase = FIREBASE_URL && !FIREBASE_URL.startsWith("COLOQUE_AQUI");
+  const LOCAL_KEY = "lucometro_entries";
+
+  const counterFigure = document.getElementById('counterFigure');
+  const rankTag = document.getElementById('rankTag');
+  const progressCaption = document.getElementById('progressCaption');
+  const needleGroup = document.getElementById('needleGroup');
+  const ticksGroup = document.getElementById('ticks');
+  const entriesEl = document.getElementById('entries');
+  const logCount = document.getElementById('logCount');
+  const statusMsg = document.getElementById('statusMsg');
+  const syncBanner = document.getElementById('syncBanner');
+
+  if(!usingFirebase){ syncBanner.style.display = 'block'; }
+
+  const SCALE_MAX = 25;
+  const RANKS = [
+    { min: 0,  name: "novato" },
+    { min: 3,  name: "tagarela" },
+    { min: 7,  name: "cringe confirmado" },
+    { min: 15, name: "lendário" },
+    { min: 25, name: "lucas supremo" },
+  ];
+
+  function angleFor(value){
+    const capped = Math.min(value, SCALE_MAX);
+    return -90 + (capped / SCALE_MAX) * 180;
+  }
+
+  function drawTicks(){
+    const cx = 160, cy = 184, rOuter = 120, rInner = 108;
+    const svgns = "http://www.w3.org/2000/svg";
+    RANKS.forEach(r => {
+      const angleDeg = angleFor(r.min);
+      const angleRad = (angleDeg - 90) * Math.PI / 180;
+      const x1 = cx + rInner * Math.cos(angleRad);
+      const y1 = cy + rInner * Math.sin(angleRad);
+      const x2 = cx + rOuter * Math.cos(angleRad);
+      const y2 = cy + rOuter * Math.sin(angleRad);
+      const line = document.createElementNS(svgns, 'line');
+      line.setAttribute('x1', x1); line.setAttribute('y1', y1);
+      line.setAttribute('x2', x2); line.setAttribute('y2', y2);
+      line.setAttribute('stroke', '#3a3a40');
+      line.setAttribute('stroke-width', '2');
+      ticksGroup.appendChild(line);
+    });
+  }
+  drawTicks();
+
+  function loadLocal(){
+    try{ return JSON.parse(localStorage.getItem(LOCAL_KEY)) || []; }
+    catch(e){ return []; }
+  }
+  function saveLocal(list){ localStorage.setItem(LOCAL_KEY, JSON.stringify(list)); }
+
+  async function fetchEntries(){
+    if(usingFirebase){
+      try{
+        const res = await fetch(`${FIREBASE_URL}/idiotices.json`);
+        const data = await res.json();
+        if(!data) return [];
+        return Object.entries(data)
+          .map(([id, val]) => ({ id, ...val }))
+          .sort((a,b) => (b.timestamp||0) - (a.timestamp||0));
+      }catch(e){
+        console.error(e);
+        statusMsg.textContent = "Não consegui falar com o servidor. Mostrando cópia local.";
+        return loadLocal();
+      }
+    }
+    return loadLocal().sort((a,b) => (b.timestamp||0) - (a.timestamp||0));
+  }
+
+  async function addEntry(entry){
+    if(usingFirebase){
+      await fetch(`${FIREBASE_URL}/idiotices.json`, {
+        method: 'POST',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify(entry)
+      });
+    }else{
+      const list = loadLocal();
+      list.push(entry);
+      saveLocal(list);
+    }
+  }
+
+  function rankState(count){
+    let current = RANKS[0];
+    let next = RANKS[1];
+    for(let i=0;i<RANKS.length;i++){
+      if(count >= RANKS[i].min){ current = RANKS[i]; next = RANKS[i+1] || null; }
+    }
+    const pct = next ? Math.min(100, ((count - current.min) / (next.min - current.min)) * 100) : 100;
+    const caption = next ? `faltam ${next.min - count} para o próximo nível (${next.name})` : "nível máximo atingido";
+    return { current, pct, caption };
+  }
+
+  function render(list){
+    const count = list.length;
+    const { current, pct, caption } = rankState(count);
+
+    counterFigure.textContent = String(count).padStart(3,'0');
+    rankTag.textContent = `nível: ${current.name}`;
+    progressCaption.textContent = caption;
+    logCount.textContent = String(count).padStart(3,'0');
+    needleGroup.style.transform = `rotate(${angleFor(count)}deg)`;
+
+    if(count === 0){
+      entriesEl.innerHTML = '<div class="empty">Nenhuma idiotice registrada ainda. Seja o primeiro a denunciar.</div>';
+      return;
+    }
+
+    entriesEl.innerHTML = list.map((e, i) => {
+      const num = String(list.length - i).padStart(3,'0');
+      const tags = [];
+      if(e.autor) tags.push(`denunciado por ${escapeHtml(e.autor)}`);
+      if(e.local) tags.push(escapeHtml(e.local));
+      return `
+        <div class="entry">
+          <div class="code">${num}</div>
+          <div>
+            <div class="word">"${escapeHtml(e.palavra)}"</div>
+            <div class="meaning">${escapeHtml(e.significado)}</div>
+            ${tags.length ? `<div class="meta">${tags.join(' · ')}</div>` : ''}
+          </div>
+        </div>`;
+    }).join('');
+  }
+
+  function escapeHtml(str){
+    const div = document.createElement('div');
+    div.textContent = str || '';
+    return div.innerHTML;
+  }
+
+  document.getElementById('entryForm').addEventListener('submit', async (ev) => {
+    ev.preventDefault();
+    const palavra = document.getElementById('palavra').value.trim();
+    const significado = document.getElementById('significado').value.trim();
+    const autor = document.getElementById('autor').value.trim();
+    const local = document.getElementById('local').value.trim();
+    if(!palavra || !significado) return;
+
+    statusMsg.textContent = "Registrando...";
+    const entry = { palavra, significado, autor, local, timestamp: Date.now() };
+    try{
+      await addEntry(entry);
+      statusMsg.textContent = "Idiotice registrada com sucesso.";
+      ev.target.reset();
+      const list = await fetchEntries();
+      render(list);
+    }catch(e){
+      console.error(e);
+      statusMsg.textContent = "Deu ruim ao salvar. Tenta de novo.";
+    }
+  });
+
+  (async function init(){
+    const list = await fetchEntries();
+    render(list);
+  })();
+</script>
+
+</body>
+</html>
