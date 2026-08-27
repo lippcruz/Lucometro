@@ -128,7 +128,7 @@
   .counter-readout{
     display:flex;
     justify-content:center;
-    align-items:baseline;
+    align-items:center;
     gap:10px;
     margin-top:6px;
   }
@@ -144,6 +144,7 @@
 
   .counter-label{
     font-size:12px;
+    line-height:1.25;
     color:var(--muted);
     text-transform:uppercase;
     letter-spacing:0.08em;
@@ -261,11 +262,15 @@
     background:transparent;
     color:var(--muted);
     border:1px solid var(--border);
+    border-radius:6px;
     padding:5px 9px;
     font-size:18px;
     line-height:1;
   }
-  .like-button:hover, .like-button.liked{ color:var(--accent); border-color:var(--accent); opacity:1; }
+  .like-button:hover{ color:var(--accent); border-color:var(--accent); opacity:1; }
+  .like-button:not(.liked):hover .like-icon{ filter:brightness(0) saturate(100%) invert(44%) sepia(93%) saturate(2046%) hue-rotate(339deg) brightness(103%) contrast(101%); }
+  .like-button.liked{ color:var(--muted); border-color:var(--border); opacity:1; }
+  .like-icon{ width:16px; height:15px; vertical-align:-2px; }
   .more-button{ margin-top:18px; background:transparent; color:var(--text); border:1px solid var(--border); }
 
   .entry{
@@ -582,7 +587,7 @@
             <div class="meaning">${escapeHtml(e.significado)}</div>
             ${tags.length ? `<div class="meta">${tags.join(' · ')}</div>` : ''}
             <div class="entry-actions">
-              <button type="button" class="like-button${liked ? ' liked' : ''}" data-entry-id="${escapeHtml(e.id)}" aria-label="${liked ? 'Remover like' : 'Dar like'}" aria-pressed="${liked}">${liked ? '♥' : '♡'} <span class="like-count">${likes}</span></button>
+              <button type="button" class="like-button${liked ? ' liked' : ''}" data-entry-id="${escapeHtml(e.id)}" aria-label="${liked ? 'Remover like' : 'Dar like'}" aria-pressed="${liked}"><img class="like-icon" src="${liked ? 'liked.svg' : 'like.svg'}" alt=""> <span class="like-count">${likes}</span></button>
             </div>
           </div>
         </div>`;
