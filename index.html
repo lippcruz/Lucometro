@@ -128,6 +128,8 @@
   .gauge-wrap svg{ width:100%; max-width:340px; height:auto; }
 
   .needle{ transform-origin: 160px 184px; transition: transform 0.9s cubic-bezier(.22,1,.36,1); }
+  .counter-block{ cursor:pointer; }
+  .counter-block:focus-visible{ outline:2px solid var(--accent); outline-offset:3px; }
 
   .photo-gallery{
     margin-top:34px;
@@ -454,7 +456,7 @@
 
   <header>
     <div class="wordmark">lucômetro<span class="dot">.</span></div>
-    <div class="sub mono">catálogo de idiotices</div>
+    <div class="sub mono">Catálogo de Idiotices</div>
   </header>
 
   <h1 class="title">Lucômetro<span class="dot">.</span></h1>
@@ -472,7 +474,7 @@
     </div>
   </section>
 
-  <div class="counter-block">
+  <div class="counter-block" id="counterBlock" role="button" tabindex="0" aria-label="Animar o ponteiro do Lucômetro">
     <div class="gauge-wrap">
       <svg viewBox="0 45 320 227" xmlns="http://www.w3.org/2000/svg">
         <defs>
@@ -566,6 +568,8 @@
   const rankTag = document.getElementById('rankTag');
   const progressCaption = document.getElementById('progressCaption');
   const needleGroup = document.getElementById('needleGroup');
+  const counterBlock = document.getElementById('counterBlock');
+  let sweepTimer;
   const ticksGroup = document.getElementById('ticks');
   const entriesEl = document.getElementById('entries');
   const logCount = document.getElementById('logCount');
@@ -591,6 +595,32 @@
     const capped = Math.min(value, SCALE_MAX);
     return -90 + (capped / SCALE_MAX) * 180;
   }
+
+  function sweepNeedle(){
+    const targetAngle = angleFor(allEntries.length);
+    clearTimeout(sweepTimer);
+    needleGroup.style.transition = 'none';
+    needleGroup.style.transform = `rotate(${targetAngle}deg)`;
+    void needleGroup.offsetWidth;
+    needleGroup.style.transition = 'transform 1.8s cubic-bezier(.22,1,.36,1)';
+    needleGroup.style.transform = `rotate(${targetAngle + 360}deg)`;
+
+    const resetNeedle = () => {
+      needleGroup.style.transition = 'none';
+      needleGroup.style.transform = `rotate(${targetAngle}deg)`;
+    };
+
+    needleGroup.addEventListener('transitionend', resetNeedle, { once:true });
+    sweepTimer = setTimeout(resetNeedle, 1900);
+  }
+
+  counterBlock.addEventListener('click', sweepNeedle);
+  counterBlock.addEventListener('keydown', (ev) => {
+    if(ev.key === 'Enter' || ev.key === ' '){
+      ev.preventDefault();
+      sweepNeedle();
+    }
+  });
 
   function drawTicks(){
     const cx = 160, cy = 184, rOuter = 120, rInner = 108;
