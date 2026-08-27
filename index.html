@@ -28,6 +28,15 @@
                ".write": "!data.exists()",
                ".validate": "newData.hasChildren(['palavra','significado','timestamp'])"
              }
+             },
+             "likes": {
+               ".read": true,
+               "$entryId": {
+                 "$clientId": {
+                   ".write": "!data.exists() || !newData.exists()",
+                   ".validate": "newData.val() === true"
+                 }
+               }
            }
          }
        }
@@ -442,6 +451,7 @@
   const usingFirebase = FIREBASE_URL && !FIREBASE_URL.startsWith("COLOQUE_AQUI");
   const LOCAL_KEY = "lucometro_entries";
   const LIKE_KEY = "lucometro_likes";
+  const CLIENT_ID_KEY = "lucometro_client_id";
   const PAGE_SIZE = 10;
 
   const counterFigure = document.getElementById('counterFigure');
@@ -456,6 +466,7 @@
   const moreButton = document.getElementById('moreButton');
   let allEntries = [];
   let showingAll = false;
+  let sharedLikes = {};
 
   if(!usingFirebase){ syncBanner.style.display = 'block'; }
 
@@ -506,7 +517,49 @@
     catch(e){ return {}; }
   }
   function saveLikes(likes){ localStorage.setItem(LIKE_KEY, JSON.stringify(likes)); }
-  function likeCount(entry){ return Number(entry.likes || 0) + Number(loadLikes()[entry.id] || 0); }
+  function getClientId(){
+    let clientId = localStorage.getItem(CLIENT_ID_KEY);
+    if(!clientId){
+      clientId = `client-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+      localStorage.setItem(CLIENT_ID_KEY, clientId);
+    }
+    return clientId;
+  }
+  function hasLiked(entry){
+    if(usingFirebase) return Boolean(sharedLikes[entry.id] && sharedLikes[entry.id][getClientId()]);
+    return Boolean(loadLikes()[entry.id]);
+  }
+  function likeCount(entry){
+    if(usingFirebase) return Number(entry.likes || 0) + Object.keys(sharedLikes[entry.id] || {}).length;
+    return Number(entry.likes || 0) + Number(loadLikes()[entry.id] || 0);
+  }
+
+  async function fetchLikes(){
+    if(!usingFirebase) return;
+    try{
+      const res = await fetch(`${FIREBASE_URL}/likes.json`);
+      sharedLikes = await res.json() || {};
+    }catch(e){
+      console.error(e);
+      sharedLikes = {};
+    }
+  }
+
+  async function toggleLike(entryId){
+    if(usingFirebase){
+      const clientId = getClientId();
+      const liked = Boolean(sharedLikes[entryId] && sharedLikes[entryId][clientId]);
+      const url = `${FIREBASE_URL}/likes/${encodeURIComponent(entryId)}/${encodeURIComponent(clientId)}.json`;
+      const res = await fetch(url, { method: liked ? 'DELETE' : 'PUT', ...(!liked && { headers: {'Content-Type':'application/json'}, body: 'true' }) });
+      if(!res.ok) throw new Error('Não foi possível salvar o like.');
+      await fetchLikes();
+      return;
+    }
+    const likes = loadLikes();
+    if(likes[entryId]) delete likes[entryId];
+    else likes[entryId] = 1;
+    saveLikes(likes);
+  }
 
   async function fetchEntries(){
     if(usingFirebase){
@@ -575,7 +628,7 @@
     entriesEl.innerHTML = visible.map((e, i) => {
       const num = String(ordered.length - i).padStart(3,'0');
       const likes = likeCount(e);
-      const liked = Boolean(loadLikes()[e.id]);
+      const liked = hasLiked(e);
       const tags = [];
       if(e.autor) tags.push(`denunciado por ${escapeHtml(e.autor)}`);
       if(e.local) tags.push(escapeHtml(e.local));
@@ -626,12 +679,15 @@
   entriesEl.addEventListener('click', (ev) => {
     const button = ev.target.closest('.like-button');
     if(!button) return;
-    const likes = loadLikes();
     const entryId = button.dataset.entryId;
-    if(likes[entryId]) delete likes[entryId];
-    else likes[entryId] = 1;
-    saveLikes(likes);
-    render(allEntries);
+    button.disabled = true;
+    toggleLike(entryId)
+      .then(() => render(allEntries))
+      .catch(e => {
+        console.error(e);
+        statusMsg.textContent = 'Não foi possível salvar o like.';
+      })
+      .finally(() => { button.disabled = false; });
   });
 
   moreButton.addEventListener('click', () => {
@@ -641,6 +697,7 @@
 
   (async function init(){
     const list = await fetchEntries();
+    await fetchLikes();
     render(list);
   })();
 </script>
