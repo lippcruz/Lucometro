@@ -113,9 +113,11 @@
 
   /* ---------- COUNTER ---------- */
   .counter-block{
-    margin-top:44px;
+    margin-top:0;
     border:1px solid var(--border);
-    padding:24px 28px 24px;
+    padding:76px 28px 24px;
+    position:relative;
+    z-index:1;
   }
 
   .gauge-wrap{
@@ -126,6 +128,86 @@
   .gauge-wrap svg{ width:100%; max-width:340px; height:auto; }
 
   .needle{ transform-origin: 160px 184px; transition: transform 0.9s cubic-bezier(.22,1,.36,1); }
+
+  .photo-gallery{
+    margin-top:34px;
+    margin-bottom:-52px;
+    position:relative;
+    z-index:2;
+  }
+
+  .photo-gallery h2{
+    font-size:11px;
+    font-weight:600;
+    text-transform:uppercase;
+    letter-spacing:0.06em;
+    color:var(--muted);
+    margin:0 0 10px;
+  }
+
+  .photo-grid{
+    display:flex;
+    justify-content:center;
+    align-items:flex-end;
+    gap:clamp(6px, 2vw, 14px);
+  }
+
+  .photo-card{
+    margin:0;
+    width:clamp(82px, 20vw, 132px);
+    aspect-ratio:4 / 5;
+    overflow:hidden;
+    border:1px solid var(--border);
+    background:var(--surface);
+    box-shadow:0 8px 18px rgba(0,0,0,.28);
+  }
+
+  .photo-card:nth-child(1){ transform:rotate(-4deg); }
+  .photo-card:nth-child(2){
+    width:clamp(94px, 22vw, 146px);
+    transform:translateY(-7px);
+  }
+  .photo-card:nth-child(3){ transform:rotate(4deg); }
+
+  .photo-card:hover{
+    transform:translateY(-4px) rotate(0);
+  }
+
+  .photo-card img{
+    width:100%;
+    height:100%;
+    display:block;
+    object-fit:cover;
+    filter:grayscale(1) contrast(1.05);
+    transition:filter .2s ease, transform .2s ease;
+  }
+
+  .photo-card:hover img{
+    filter:grayscale(1) contrast(1.15);
+    transform:scale(1.03);
+  }
+
+  @media (max-width:520px){
+    .counter-block{
+      padding:62px 14px 20px;
+    }
+
+    .photo-gallery{
+      margin-top:28px;
+      margin-bottom:-38px;
+    }
+    .photo-gallery h2{ margin-left:4px; }
+
+    .photo-card{
+      width:calc((100vw - 72px) / 3);
+      max-width:108px;
+    }
+
+    .photo-card:nth-child(2){
+      width:calc((100vw - 60px) / 3);
+      max-width:116px;
+    }
+  }
 
   .tick-label{
     font-family:'IBM Plex Mono', monospace;
@@ -382,6 +464,14 @@
     Qualquer um pode adicionar uma ocorrência abaixo.
   </p>
 
+  <section class="photo-gallery" aria-labelledby="photoGalleryTitle">
+    <div class="photo-grid">
+      <figure class="photo-card"><img src="lucas-1.webp" alt="Retrato do Lucas em preto e branco" onerror="this.src='lucas.webp'"></figure>
+      <figure class="photo-card"><img src="lucas-2.webp" alt="Retrato do Lucas em preto e branco" onerror="this.src='lucas.webp'"></figure>
+      <figure class="photo-card"><img src="lucas-3.webp" alt="Retrato do Lucas em preto e branco" onerror="this.src='lucas.webp'"></figure>
+    </div>
+  </section>
+
   <div class="counter-block">
     <div class="gauge-wrap">
       <svg viewBox="0 45 320 227" xmlns="http://www.w3.org/2000/svg">
@@ -398,7 +488,7 @@
         <g id="ticks"></g>
 
         <!-- foto do suspeito no centro do medidor -->
-        <image href="lucas.webp" x="72" y="96" width="176" height="176" clip-path="url(#photoClip)" preserveAspectRatio="xMidYMid slice"/>
+        <image href="lucas.webp" x="72" y="96" width="176" height="176" class="portrait-image" clip-path="url(#photoClip)" preserveAspectRatio="xMidYMid slice"/>
         <circle cx="160" cy="184" r="88" fill="none" stroke="#ff5a36" stroke-width="2"/>
 
         <!-- ponteiro -->
