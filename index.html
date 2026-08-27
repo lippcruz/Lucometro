@@ -255,6 +255,19 @@
 
   .entries{ }
 
+  .entry-actions{ margin-top:12px; display:flex; align-items:center; gap:10px; }
+  .like-button{
+    justify-self:auto;
+    background:transparent;
+    color:var(--muted);
+    border:1px solid var(--border);
+    padding:5px 9px;
+    font-size:18px;
+    line-height:1;
+  }
+  .like-button:hover, .like-button.liked{ color:var(--accent); border-color:var(--accent); opacity:1; }
+  .more-button{ margin-top:18px; background:transparent; color:var(--text); border:1px solid var(--border); }
+
   .entry{
     padding:20px 0;
     border-bottom:1px solid var(--border);
@@ -327,7 +340,7 @@
 
   <header>
     <div class="wordmark">lucômetro<span class="dot">.</span></div>
-    <div class="sub mono">catálogo de idiotices</div>
+    <div class="sub mono">Catálogo de Idiotices</div>
   </header>
 
   <h1 class="title">Lucômetro<span class="dot">.</span></h1>
@@ -370,10 +383,21 @@
     </div>
 
     <div class="rank-row">
-      <div class="rank-tag" id="rankTag">nível: novato</div>
+      <div class="rank-tag" id="rankTag">Nível: Novato</div>
       <div class="progress-caption" id="progressCaption">faltam 3 para o próximo nível</div>
     </div>
   </div>
+
+  <div class="log-header">
+    <h2>Ocorrências</h2>
+    <span class="log-count" id="logCount">000</span>
+  </div>
+
+  <div class="entries" id="entries">
+    <div class="empty">Nenhuma idiotice registrada ainda. Seja o primeiro a denunciar.</div>
+  </div>
+
+  <button type="button" class="more-button" id="moreButton" hidden>Ver mais</button>
 
   <div class="panel">
     <p class="panel-title">Registrar nova idiotice</p>
@@ -401,15 +425,6 @@
     </form>
   </div>
 
-  <div class="log-header">
-    <h2>Ocorrências</h2>
-    <span class="log-count" id="logCount">000</span>
-  </div>
-
-  <div class="entries" id="entries">
-    <div class="empty">Nenhuma idiotice registrada ainda. Seja o primeiro a denunciar.</div>
-  </div>
-
   <div class="footer-note">lucômetro — nenhum Lucas foi poupado na produção deste site.</div>
 </div>
 
@@ -421,6 +436,8 @@
 
   const usingFirebase = FIREBASE_URL && !FIREBASE_URL.startsWith("COLOQUE_AQUI");
   const LOCAL_KEY = "lucometro_entries";
+  const LIKE_KEY = "lucometro_likes";
+  const PAGE_SIZE = 10;
 
   const counterFigure = document.getElementById('counterFigure');
   const rankTag = document.getElementById('rankTag');
@@ -431,6 +448,9 @@
   const logCount = document.getElementById('logCount');
   const statusMsg = document.getElementById('statusMsg');
   const syncBanner = document.getElementById('syncBanner');
+  const moreButton = document.getElementById('moreButton');
+  let allEntries = [];
+  let showingAll = false;
 
   if(!usingFirebase){ syncBanner.style.display = 'block'; }
 
@@ -469,10 +489,19 @@
   drawTicks();
 
   function loadLocal(){
-    try{ return JSON.parse(localStorage.getItem(LOCAL_KEY)) || []; }
+    try{
+      const list = JSON.parse(localStorage.getItem(LOCAL_KEY)) || [];
+      return list.map(entry => ({ ...entry, id: entry.id || `local-${entry.timestamp}-${Math.random().toString(36).slice(2)}` }));
+    }
     catch(e){ return []; }
   }
   function saveLocal(list){ localStorage.setItem(LOCAL_KEY, JSON.stringify(list)); }
+  function loadLikes(){
+    try{ return JSON.parse(localStorage.getItem(LIKE_KEY)) || {}; }
+    catch(e){ return {}; }
+  }
+  function saveLikes(likes){ localStorage.setItem(LIKE_KEY, JSON.stringify(likes)); }
+  function likeCount(entry){ return Number(entry.likes || 0) + Number(loadLikes()[entry.id] || 0); }
 
   async function fetchEntries(){
     if(usingFirebase){
@@ -529,11 +558,19 @@
 
     if(count === 0){
       entriesEl.innerHTML = '<div class="empty">Nenhuma idiotice registrada ainda. Seja o primeiro a denunciar.</div>';
+      moreButton.hidden = true;
       return;
     }
 
-    entriesEl.innerHTML = list.map((e, i) => {
-      const num = String(list.length - i).padStart(3,'0');
+    const ordered = [...list].sort((a, b) => likeCount(b) - likeCount(a) || (b.timestamp || 0) - (a.timestamp || 0));
+    const visible = showingAll ? ordered : ordered.slice(0, PAGE_SIZE);
+    moreButton.hidden = ordered.length <= PAGE_SIZE;
+    moreButton.textContent = showingAll ? 'Ver menos' : 'Ver mais';
+
+    entriesEl.innerHTML = visible.map((e, i) => {
+      const num = String(ordered.length - i).padStart(3,'0');
+      const likes = likeCount(e);
+      const liked = Boolean(loadLikes()[e.id]);
       const tags = [];
       if(e.autor) tags.push(`denunciado por ${escapeHtml(e.autor)}`);
       if(e.local) tags.push(escapeHtml(e.local));
@@ -544,9 +581,13 @@
             <div class="word">"${escapeHtml(e.palavra)}"</div>
             <div class="meaning">${escapeHtml(e.significado)}</div>
             ${tags.length ? `<div class="meta">${tags.join(' · ')}</div>` : ''}
+            <div class="entry-actions">
+              <button type="button" class="like-button${liked ? ' liked' : ''}" data-entry-id="${escapeHtml(e.id)}" aria-label="${liked ? 'Remover like' : 'Dar like'}" aria-pressed="${liked}">${liked ? '♥' : '♡'} <span class="like-count">${likes}</span></button>
+            </div>
           </div>
         </div>`;
     }).join('');
+    allEntries = list;
   }
 
   function escapeHtml(str){
@@ -564,7 +605,7 @@
     if(!palavra || !significado) return;
 
     statusMsg.textContent = "Registrando...";
-    const entry = { palavra, significado, autor, local, timestamp: Date.now() };
+    const entry = { id: `local-${Date.now()}-${Math.random().toString(36).slice(2)}`, palavra, significado, autor, local, timestamp: Date.now() };
     try{
       await addEntry(entry);
       statusMsg.textContent = "Idiotice registrada com sucesso.";
@@ -575,6 +616,22 @@
       console.error(e);
       statusMsg.textContent = "Deu ruim ao salvar. Tenta de novo.";
     }
+  });
+
+  entriesEl.addEventListener('click', (ev) => {
+    const button = ev.target.closest('.like-button');
+    if(!button) return;
+    const likes = loadLikes();
+    const entryId = button.dataset.entryId;
+    if(likes[entryId]) delete likes[entryId];
+    else likes[entryId] = 1;
+    saveLikes(likes);
+    render(allEntries);
+  });
+
+  moreButton.addEventListener('click', () => {
+    showingAll = !showingAll;
+    render(allEntries);
   });
 
   (async function init(){
